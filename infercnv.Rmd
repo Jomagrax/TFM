@@ -1,0 +1,71 @@
+---
+title: "inferCNV"
+author: "Jose"
+date: "11/14/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Filter interesting cells
+
+```{r}
+
+cell_annotation_cnv <- rownames_to_column(pbmc@meta.data)[pbmc@meta.data$customclassif != "Unknown",c("rowname","customclassif")] %>% remove_rownames(.) %>%  column_to_rownames("rowname")
+
+cell_annotation_cnv$customclassif != "Cancer cells" <- "normal"
+
+cell_annotation_cnv <- cell_annotation %>% filter(.,Sample=="NS_02" & Sample=="NS_19")
+
+write.table()
+```
+
+
+
+```{r}
+library(infercnv)
+
+infercnv_obj = CreateInfercnvObject(raw_counts_matrix=system.file("extdata", "oligodendroglioma_expression_downsampled.counts.matrix.gz", package = "infercnv"),
+                                    annotations_file=system.file("extdata", "oligodendroglioma_annotations_downsampled.txt", package = "infercnv"),
+                                    delim="\t",
+                                    gene_order_file=system.file("extdata", "gencode_downsampled.EXAMPLE_ONLY_DONT_REUSE.txt", package = "infercnv"),
+                                    ref_group_names=c("Microglia/Macrophage","Oligodendrocytes (non-malignant)")) 
+
+infercnv_obj = infercnv::run(infercnv_obj,
+                             cutoff=1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
+                             out_dir=tempfile(), 
+                             cluster_by_groups=TRUE, 
+                             denoise=TRUE,
+                             HMM=TRUE)
+
+```
+
+```{r}
+library(infercnv)
+
+infercnv_obj = CreateInfercnvObject(raw_counts_matrix="00.rawdata/GSE131907_Lung_Cancer_raw_UMI_matrix.txt",
+                                    annotations_file="00.rawdata/GSE131907_Lung_Cancer_cell_annotation.txt",
+                                    delim="\t",
+                                    gene_order_file="00.rawdata/hg38_gencode_v27.txt",
+                                    ref_group_names=c("AT1","AT2","Ciliated")) 
+
+infercnv_obj = infercnv::run(infercnv_obj,
+                             cutoff=0.1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
+                             out_dir="infer_cnv_jose/", 
+                             cluster_by_groups=TRUE, 
+                             denoise=TRUE,
+                             HMM=TRUE)
+```
+```{r}
+
+infercnv_obj = infercnv::run(infercnv_obj,
+                             cutoff=0.1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
+                             out_dir="infer_cnv_jose/", 
+                             cluster_by_groups=TRUE, 
+                             denoise=TRUE,
+                             HMM=TRUE)
+
+```
+
