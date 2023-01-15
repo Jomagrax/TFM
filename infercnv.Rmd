@@ -9,63 +9,81 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Filter interesting cells
+```{r}
+library(infercnv)
+library(dplyr)
+library(tidyverse)
+```
+
+
+Filter interesting cells, creating the metadata file
 
 ```{r}
 
-cell_annotation_cnv <- rownames_to_column(pbmc@meta.data)[pbmc@meta.data$customclassif != "Unknown",c("rowname","customclassif")] %>% remove_rownames(.) %>%  column_to_rownames("rowname")
+# cell_annotation_cnv <- rownames_to_column(pbmc@meta.data)[pbmc@meta.data$customclassif != "Unknown",c("rowname","customclassif")] %>% remove_rownames(.) %>%  column_to_rownames("rowname")
 
-cell_annotation_cnv$customclassif != "Cancer cells" <- "normal"
+#Extract metadata from pbmc object
 
-cell_annotation_cnv <- cell_annotation %>% filter(.,Sample=="NS_02" & Sample=="NS_19")
+pbmc_metadata <- read.csv("~/TFM/20.infercnv/pbmc_metadata.txt", sep="")
 
-write.table()
+cell_annotation_cnv <- (subset(pbmc_metadata, select = c("customclassif")))
+
+cell_annotation <- read.csv("~/TFM/20.infercnv/cell_annotation.txt")
+
+
+
+# Set all other cells as normal
+cell_annotation_cnv[-starts_with("Cancer",vars = cell_annotation_cnv$customclassif),] <- "normal"
+
+# Include sample origin  in malignant cells 
+for (i in starts_with("Cancer",vars = cell_annotation_cnv$customclassif)) {
+  
+  
+    cell_annotation_cnv$customclassif[i] <- cell_annotation[match(rownames(cell_annotation_cnv)[i],cell_annotation$Index),c("Sample_Origin")]
+      
+    
+      
+  
+}
+
+
+# Write table
+write.table(cell_annotation_cnv, file ="~/TFM/20.infercnv/metadata_sample_origin.txt",col.names = F,row.names = T,sep ="\t",quote = F)
 ```
 
 
 
+Hay que eliminar el nombre de la primera columna del archivo de las counts 
+
+sed -e '1s/Index//' YourFile > yourfile_cnv
+
+#Creating InferCNV file
+```{r}
+library(infercnv)
+# Hya que borrar la carpeta output o crear una nueva
+infercnv_obj = CreateInfercnvObject(raw_counts_matrix="~/TFM/00.rawdata/matrix_big_cohort_cnv.txt",
+                                    annotations_file="~/TFM/20.infercnv/metadata_mbrain_02-019.txt",
+                                    delim="\t",
+                                    gene_order_file="~/TFM/00.rawdata/hg38_gencode_v27.txt",
+                                    ref_group_names=c("normal")) 
+
+```
+
+
+# Running InferCNV
 ```{r}
 library(infercnv)
 
-infercnv_obj = CreateInfercnvObject(raw_counts_matrix=system.file("extdata", "oligodendroglioma_expression_downsampled.counts.matrix.gz", package = "infercnv"),
-                                    annotations_file=system.file("extdata", "oligodendroglioma_annotations_downsampled.txt", package = "infercnv"),
-                                    delim="\t",
-                                    gene_order_file=system.file("extdata", "gencode_downsampled.EXAMPLE_ONLY_DONT_REUSE.txt", package = "infercnv"),
-                                    ref_group_names=c("Microglia/Macrophage","Oligodendrocytes (non-malignant)")) 
+#Please use "options(scipen = 100)" before running infercnv if you are using the analysis_mode="subclusters" option or you may encounter an error while the hclust is being generated.
 
-infercnv_obj = infercnv::run(infercnv_obj,
-                             cutoff=1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
-                             out_dir=tempfile(), 
-                             cluster_by_groups=TRUE, 
-                             denoise=TRUE,
-                             HMM=TRUE)
-
-```
-
-```{r}
-library(infercnv)
-
-infercnv_obj = CreateInfercnvObject(raw_counts_matrix="00.rawdata/GSE131907_Lung_Cancer_raw_UMI_matrix.txt",
-                                    annotations_file="00.rawdata/GSE131907_Lung_Cancer_cell_annotation.txt",
-                                    delim="\t",
-                                    gene_order_file="00.rawdata/hg38_gencode_v27.txt",
-                                    ref_group_names=c("AT1","AT2","Ciliated")) 
-
-infercnv_obj = infercnv::run(infercnv_obj,
+infercnv_obj_clus = infercnv::run(infercnv_obj,
                              cutoff=0.1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
-                             out_dir="infer_cnv_jose/", 
-                             cluster_by_groups=TRUE, 
-                             denoise=TRUE,
-                             HMM=TRUE)
+                             out_dir="~/TFM/20.infercnv/infercnv_big_cohort_subclusters/", 
+                             analysis_mode='subclusters',
+                             denoise=T,
+                             HMM=T)
+View(infercnv_obj_clus@expr.data)
 ```
-```{r}
 
-infercnv_obj = infercnv::run(infercnv_obj,
-                             cutoff=0.1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
-                             out_dir="infer_cnv_jose/", 
-                             cluster_by_groups=TRUE, 
-                             denoise=TRUE,
-                             HMM=TRUE)
 
-```
 
